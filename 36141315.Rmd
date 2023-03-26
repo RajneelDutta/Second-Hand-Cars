@@ -1,8 +1,5 @@
 ---
-title: "Coursework Stats"
-author: "Rajneel Dutta"
-date: '2022-12-30'
-output: html_document
+title: "Second-hand cars price EDA & prediction"
 ---
 
 ```{r setup, include=FALSE}
