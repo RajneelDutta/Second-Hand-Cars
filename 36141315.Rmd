@@ -1,0 +1,255 @@
+---
+title: "Coursework Stats"
+author: "Rajneel Dutta"
+date: '2022-12-30'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(mice)
+library(ggcorrplot)
+library(ggthemes)
+library(scales)
+
+
+theme_set(theme_light())
+
+```
+
+```{r}
+data_raw <- read.csv("carsData24.csv")
+View(data_raw)
+
+data <- subset(data_raw, select = -X)
+head(data, 10)
+```
+```{r}
+md.pattern(data)
+```
+```{r}
+data <- na.omit(data)
+colSums(is.na(data))
+
+md.pattern(data)
+```
+
+# Exploration
+
+## Correlation
+```{r}
+data.numeric <- data %>% 
+  dplyr::select(where(is.numeric))
+
+cor.data <- cor(data.numeric)
+
+ggcorrplot(cor.data, lab = TRUE)
+```
+
+## Response Variable : price
+```{r}
+
+data %>% 
+  ggplot() + 
+  geom_histogram(aes(price, ..density..), bins=50) +
+  geom_density(aes(price)) +
+  scale_x_continuous(labels = label_dollar())
+
+```
+## year
+```{r}
+data %>% ggplot(aes(year, price)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  scale_y_continuous(labels = label_dollar())
+```
+```{r}
+data %>% 
+  filter(year > 1980)  %>% 
+  ggplot(aes(year, price)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  scale_y_continuous(labels = label_dollar())
+```
+
+## Cylinders
+```{r}
+data %>% ggplot(aes(cylinders, price)) +
+  geom_col()  +
+  scale_y_continuous(labels = label_dollar())
+```
+## Odometer
+```{r}
+data %>% ggplot(aes(odometer, price)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  scale_y_continuous(labels = label_dollar())
+```
+Interseting that prices stabilise after odometer readings of 150+. Expectation is that it should keep on decreasing. 
+
+```{r}
+data %>% filter(odometer>150)
+```
+One explanation is that the conditions, on account of them being "good" or better, plays a part. Let's try to see if that's the case indeed.
+```{r}
+data %>% 
+  ggplot(aes(x=odometer, y=price, group = condition, color = condition)) +
+  geom_point(stat = "summary", fun.y = "mean") +
+  scale_y_continuous(labels = label_dollar())
+```
+
+## State
+```{r}
+data %>% 
+  mutate(state = fct_reorder(state, price)) %>% 
+           ggplot(aes(state, price)) + 
+           geom_boxplot() +
+  scale_y_continuous(labels = label_dollar()) +
+  coord_flip() 
+```
+
+## Type of Car
+```{r}
+data %>% 
+  mutate(type = fct_reorder(type, price)) %>% 
+  ggplot(aes(type, price)) +
+  geom_boxplot() +
+  scale_y_continuous(labels = label_dollar())
+```
+## Size
+```{r}
+data %>% 
+  mutate(size = fct_reorder(size, price)) %>% 
+  ggplot(aes(size, price)) +
+  geom_boxplot() +
+  scale_y_continuous(labels = label_dollar())
+```
+For some reason, sub-compact has the highest median price. Let's see what cars are of that size category. 
+```{r}
+data %>% 
+  filter(size == 'sub-compact')
+```
+Interesting, there is only one car.
+
+## Fuel
+```{r}
+data %>% ggplot(aes(fuel, price)) +
+  geom_boxplot() +
+  geom_jitter(alpha = 0.1) +
+  labs(x = "Fuel Type",
+       y = "Price") +
+  scale_y_continuous(labels = label_dollar())
+```
+## Year & Condition
+```{r}
+data %>% 
+  ggplot(aes(year, price, color = condition)) +
+  geom_point() +
+  geom_text(aes(label = manufacturer), vjust = 1, hjust = 1,check_overlap = TRUE) +
+  scale_y_continuous(labels = label_dollar())
+```
+Looks like a few old cars are in 'excellent' condition. Interestingly, Chevrolet is the manufacturer for two out of three of those cars in that condition.
+
+## Transmission
+```{r}
+data %>% 
+  ggplot(aes(transmission, price)) +
+  geom_boxplot() +
+  geom_jitter(alpha = 0.1) +
+  scale_y_continuous(labels = label_dollar())
+```
+```{r}
+data %>% 
+  group_by(transmission) %>% 
+  summarize(mean_price = mean(price),
+            median_price = median(price))
+```
+
+## Manufacturer
+```{r}
+data %>% 
+  mutate(manufacturer = fct_reorder(manufacturer, price)) %>% 
+  ggplot(aes(manufacturer, price)) +
+  geom_boxplot() +
+  scale_y_continuous(labels = label_dollar()) +
+  coord_flip() +
+  labs(x = "Manufacturer",
+       y = "Price ($)",
+       title = "Prices of cars vs the Manufacturing companies")
+```
+## Paint colour
+```{r}
+data %>% 
+  mutate(paint_color = fct_reorder(paint_color, price)) %>% 
+  ggplot(aes(paint_color, price)) +
+  geom_boxplot() +
+  scale_y_continuous(labels = label_dollar()) +
+  coord_flip()
+```
+```{r}
+data %>%  
+  group_by(manufacturer, paint_color) %>% 
+  summarize(mean_price = mean(price),
+            median_price = median(price)) %>% 
+  arrange(desc(median_price))
+```
+# Fitting models
+
+## Numerical Regression Model
+```{r}
+#data %>% 
+#  mutate(paint_color = fct_lump(paint_color, 5),
+#         paint_color = fct_reorder(paint_color, price)) %>% 
+#  ggplot(aes(paint_color, price)) +
+#  geom_boxplot() +
+#  scale_y_continuous(labels = label_dollar()) +
+#  coord_flip()
+```
+
+```{r}
+lm.num <- lm(price ~ year + cylinders + odometer, data)
+summary(lm.num)
+```
+```{r}
+plot(fitted(lm.num), rstandard(lm.num),
+     xlab = "Fitted", ylab = "Standardised Residuals")
+
+lines(lowess(fitted(lm.num), rstandard(lm.num)), col = "red")
+
+abline(h=qnorm(c(0.025,0.975),0,sd(rstandard(lm.num))),
+       col="grey", lty=2)
+```
+```{r}
+# QQ plots
+qqnorm(residuals(lm.num))
+qqline(residuals(lm.num))
+```
+## Dummy variables Regression model
+```{r}
+## Creating dummy variables
+data.reg <- data
+data.reg$manufacturer <- as.factor(data.reg$manufacturer)
+data.reg$model <- as.factor(data.reg$model)
+data.reg$condition <- as.factor(data.reg$condition)
+data.reg$fuel <- as.factor(data.reg$fuel)
+data.reg$transmission <- as.factor(data.reg$transmission)
+data.reg$size <- as.factor(data.reg$size) 
+data.reg$type <- as.factor(data.reg$type)
+data.reg$paint_color <- as.factor(data.reg$paint_color)
+data.reg$state <- as.factor(data.reg$state)
+```
+
+```{r}
+# Excluding model
+lm.char <- lm(price ~ manufacturer + condition + fuel + transmission + size + type + paint_color + state, data = data)
+summary(lm.char)
+```
+```{r}
+plot(lm.char)
+```
+
