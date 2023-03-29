@@ -2,7 +2,7 @@
 
 ## Introduction
 
-## Dataset
+This project was taken as a part of the course Statistics and Descriptive Analysis, under the University of Lancaster. All the work done here is mine, and no part has been taken from any other individual.
 
 ## Preliminary analysis
 As an important part of our analysis, we were curious about how the various numerical variables relate to each other. Hence, we plot a Correlation plot. Here is the plot :
